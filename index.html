@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>High-Precision Foreground Extraction</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #131b2e;
+      --border: #23304c;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --text: #f1f5f9;
+      --text-dim: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem;
+    }
+    header { text-align: center; margin-bottom: 2rem; }
+    header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+    header p { color: var(--text-dim); margin-top: 0.5rem; font-size: 0.95rem; }
+
+    .container { width: 100%; max-width: 960px; }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 1rem;
+      background: var(--surface);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background-color: #17233d;
+    }
+    .dropzone svg {
+      width: 48px; height: 48px; fill: none; stroke: var(--accent);
+      stroke-width: 2; margin-bottom: 1rem;
+    }
+    .dropzone p { font-size: 1rem; font-weight: 500; }
+    .dropzone span { color: var(--text-dim); font-size: 0.85rem; display: block; margin-top: 0.35rem; }
+    input[type="file"] { display: none; }
+
+    .loader-bar {
+      display: none;
+      margin-top: 1.5rem;
+      text-align: center;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .comparison-grid {
+      display: none;
+      margin-top: 2rem;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 720px) {
+      .comparison-grid { grid-template-columns: 1fr; }
+    }
+    .preview-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .preview-card h3 {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+    }
+    .canvas-box {
+      width: 100%;
+      height: 380px;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .checkerboard {
+      background-color: #1e293b;
+      background-image: 
+        linear-gradient(45deg, #0f172a 25%, transparent 25%),
+        linear-gradient(-45deg, #0f172a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #0f172a 75%),
+        linear-gradient(-45deg, transparent 75%, #0f172a 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    .canvas-box img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .actions {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .btn {
+      background: var(--accent);
+      color: #020617;
+      text-decoration: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn:hover { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>High-Precision Foreground Extraction</h1>
+    <p>Sub-pixel Dichotomous Matting & Illumination Invariant Engine</p>
+  </header>
+
+  <div class="container">
+    <div class="dropzone" id="dropArea" onclick="document.getElementById('fileInput').click()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      <p>Click or drag & drop an image here</p>
+      <span>Supports PNG, JPG, WEBP, and camera assets</span>
+      <input type="file" id="fileInput" accept="image/*" />
+    </div>
+
+    <div class="loader-bar" id="loader">Processing on Apple Silicon MPS...</div>
+
+    <div class="comparison-grid" id="comparisonGrid">
+      <div class="preview-card">
+        <h3>Original Input</h3>
+        <div class="canvas-box">
+          <img id="origPreview" alt="Original" />
+        </div>
+      </div>
+      <div class="preview-card">
+        <h3>Alpha Matting Cutout</h3>
+        <div class="canvas-box checkerboard">
+          <img id="resultPreview" alt="Extracted Foreground" />
+        </div>
+        <div class="actions">
+          <a id="downloadBtn" class="btn" download="cutout_subpixel.png">Download Cutout</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const dropArea = document.getElementById('dropArea');
+    const fileInput = document.getElementById('fileInput');
+    const loader = document.getElementById('loader');
+    const comparisonGrid = document.getElementById('comparisonGrid');
+    const origPreview = document.getElementById('origPreview');
+    const resultPreview = document.getElementById('resultPreview');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    ['dragenter', 'dragover'].forEach(name => {
+      dropArea.addEventListener(name, (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(name => {
+      dropArea.addEventListener(name, (e) => { e.preventDefault(); dropArea.classList.remove('dragover'); });
+    });
+    dropArea.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file) handleUpload(file);
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleUpload(file);
+    });
+
+    async function handleUpload(file) {
+      origPreview.src = URL.createObjectURL(file);
+      comparisonGrid.style.display = 'grid';
+      resultPreview.src = '';
+      downloadBtn.style.display = 'none';
+      loader.style.display = 'block';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/v2/extract', {
+          method: 'POST',
+          body: formData
+        });
+        if (!response.ok) throw new Error('Extraction failed');
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        resultPreview.src = url;
+        downloadBtn.href = url;
+        downloadBtn.style.display = 'inline-flex';
+      } catch (err) {
+        alert('Processing error: ' + err.message);
+      } finally {
+        loader.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
