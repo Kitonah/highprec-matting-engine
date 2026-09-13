@@ -139,8 +139,9 @@ curl -X POST "http://localhost:8080/v2/extract" \
 
 ---
 
-## Author & Proprietary License
+## Author & License
 
-* **Architects:** Mohit Lal & Ekantika Kumari
-* **Platform:** Core computer vision infrastructure for **Gristine**.
-* **License:** Proprietary. All rights reserved.
+* **Authors:** Mohit Lal & Ekantika Kumari
+* **Project:** Core vision infrastructure for **Gristine**.
+* **Copyright:** © 2026 Mohit Lal & Ekantika Kumari. All rights reserved.
+* **License:** Proprietary. Unauthorized copying, modification, distribution, or commercial deployment of this software is strictly prohibited.
