@@ -76,7 +76,7 @@ Engineered natively for **Apple Silicon (ARM64)** leveraging PyTorch Metal Perfo
 
 ### 1. Clone Repository & Initialize Environment
 ```bash
-git clone [https://github.com/](https://github.com/)<your-username>/highprec-matting-engine.git
+git clone [https://github.com/](https://github.com/)Kitonah/highprec-matting-engine.git
 cd highprec-matting-engine
 
 python3.11 -m venv .venv
